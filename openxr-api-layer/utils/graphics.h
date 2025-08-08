@@ -246,6 +246,11 @@ namespace openxr_api_layer::utils::graphics {
         virtual std::shared_ptr<ISwapchain> createSwapchain(const XrSwapchainCreateInfo& infoOnApplicationDevice,
                                                             SwapchainMode mode) = 0;
 
+        // (Not used in this minimal layer)
+        // virtual std::shared_ptr<ISwapchain> wrapSwapchain(XrSwapchain swapchain,
+        //                                                   const XrSwapchainCreateInfo& infoOnApplicationDevice,
+        //                                                   SwapchainMode mode) = 0;
+
         // Must be called at the beginning of the layer's xrEndFrame() implementation to serialize application commands
         // prior to composition.
         virtual void serializePreComposition() = 0;

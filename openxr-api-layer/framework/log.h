@@ -51,13 +51,13 @@ namespace openxr_api_layer::log {
     // Debug logging function. Can make things very slow (only enabled on Debug builds).
     void DebugLog(const char* fmt, ...);
     static inline void DebugLog(const std::string_view& str) {
-        Log(str.data());
+        DebugLog("%s", std::string(str).c_str());
     }
 
     // Error logging function. Goes silent after too many errors.
     void ErrorLog(const char* fmt, ...);
     static inline void ErrorLog(const std::string_view& str) {
-        Log(str.data());
+        ErrorLog("%s", std::string(str).c_str());
     }
 
 } // namespace openxr_api_layer::log

@@ -1,3 +1,25 @@
+# Build outputs
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.opendb
+*.VC.db
+*.ipch
+
+# Packages
+packages/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Generated
+openxr-api-layer/framework/dispatch.gen.*
 .vs/
 packages/
 bin/
