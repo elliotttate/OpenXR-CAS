@@ -20,7 +20,7 @@ This is a post-processing layer for OpenXR VR applications that enhances image q
 ## Quick Start
 
 ### Download Pre-built Release
-1. Download the latest release from the [Releases](https://github.com/yourusername/OpenXR-CAS/releases) page
+1. Download the latest release from the [Releases](https://github.com/elliotttate/OpenXR-CAS/releases) page
 2. Extract the ZIP file to a folder of your choice
 3. Right-click `Install-Layer.ps1` and select "Run with PowerShell" (requires admin rights)
    - This registers the layer system-wide for all OpenXR applications
@@ -33,7 +33,7 @@ This is a post-processing layer for OpenXR VR applications that enhances image q
    - Git (to clone the repository)
 2. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/OpenXR-CAS.git
+   git clone https://github.com/elliotttate/OpenXR-CAS.git
    cd OpenXR-CAS
    ```
 3. Build using Visual Studio or command line:
@@ -173,7 +173,7 @@ To check if the layer is properly installed:
 ### Getting Help
 
 If you encounter issues:
-1. Check the [Issues](https://github.com/yourusername/OpenXR-CAS/issues) page for known problems
+1. Check the [Issues](https://github.com/elliotttate/OpenXR-CAS/issues) page for known problems
 2. Ensure you're using the latest release
 3. Try with a simple OpenXR application first to isolate the problem
 
