@@ -88,6 +88,14 @@ namespace openxr_api_layer {
 
         Microsoft::WRL::ComPtr<ID3D11ComputeShader> levelsCS;
         Microsoft::WRL::ComPtr<ID3D11Buffer> levelsCB;
+
+        // FakeHDR controls
+        bool fakeHdrEnabled{false};
+        float fakeHdrPower{1.30f};
+        float fakeHdrRadius1{0.793f};
+        float fakeHdrRadius2{0.87f};
+        Microsoft::WRL::ComPtr<ID3D11ComputeShader> fakeHdrCS;
+        Microsoft::WRL::ComPtr<ID3D11Buffer> fakeHdrCB;
     };
 
     static float readSharpnessFromEnv() {
@@ -209,7 +217,7 @@ namespace openxr_api_layer {
 
     static bool ensureCasObjects(SessionState* s) {
         if (!s || !s->appD3DDevice) return false;
-        if (s->cs && (!s->levelsEnabled || s->levelsCS)) return true;
+        if (s->cs && (!s->levelsEnabled || s->levelsCS) && (!s->fakeHdrEnabled || s->fakeHdrCS)) return true;
         if (s->shaderInitAttempted && s->shaderInitFailed) return false;
         s->shaderInitAttempted = true;
         ID3D11Device* d3d = s->appD3DDevice.Get();
@@ -288,6 +296,28 @@ namespace openxr_api_layer {
             } else {
                 D3D11_BUFFER_DESC bd{}; bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER; bd.ByteWidth = 32; bd.Usage = D3D11_USAGE_DYNAMIC; bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
                 d3d->CreateBuffer(&bd, nullptr, s->levelsCB.ReleaseAndGetAddressOf());
+            }
+        }
+
+        // Create FakeHDR shader if enabled
+        if (s->fakeHdrEnabled && !s->fakeHdrCS) {
+            HMODULE d3dCompiler = LoadLibraryW(L"d3dcompiler_47.dll");
+            std::wstring shaderPathW = (dllHome / L"shaders" / L"FakeHDR.hlsl").wstring();
+            Microsoft::WRL::ComPtr<ID3DBlob> blob, err;
+            if (d3dCompiler) {
+                auto pD3DCompileFromFile = reinterpret_cast<HRESULT(WINAPI*)(LPCWSTR, const D3D_SHADER_MACRO*, ID3DInclude*, LPCSTR, LPCSTR, UINT, UINT, ID3DBlob**, ID3DBlob**)>(GetProcAddress(d3dCompiler, "D3DCompileFromFile"));
+                if (pD3DCompileFromFile && SUCCEEDED(pD3DCompileFromFile(shaderPathW.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "mainCS", "cs_5_0", 0, 0, blob.ReleaseAndGetAddressOf(), err.ReleaseAndGetAddressOf()))) {
+                    d3d->CreateComputeShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, s->fakeHdrCS.ReleaseAndGetAddressOf());
+                    Log("FakeHDR shader compiled\n");
+                }
+                FreeLibrary(d3dCompiler);
+            }
+            if (!s->fakeHdrCS) {
+                ErrorLog("FakeHDR shader missing or failed; fakehdr disabled\n");
+                s->fakeHdrEnabled = false;
+            } else {
+                D3D11_BUFFER_DESC bd{}; bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER; bd.ByteWidth = 32; bd.Usage = D3D11_USAGE_DYNAMIC; bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+                d3d->CreateBuffer(&bd, nullptr, s->fakeHdrCB.ReleaseAndGetAddressOf());
             }
         }
 
@@ -560,9 +590,49 @@ namespace openxr_api_layer {
         ID3D11ShaderResourceView* nullSRV[1] = {nullptr};
         ctx->CSSetShaderResources(0, 1, nullSRV);
 
-        // Optional Levels pass
+        // Optional post-CAS passes
         // Determine final output of CAS passes: last swap put latest result into 'readTex'
         Microsoft::WRL::ComPtr<ID3D11Texture2D> casFinalTex = readTex;
+
+        // Optional FakeHDR pass (before Levels)
+        if (s->fakeHdrEnabled && s->fakeHdrCS && s->fakeHdrCB) {
+            // Update constants
+            D3D11_MAPPED_SUBRESOURCE mapH{};
+            if (SUCCEEDED(ctx->Map(s->fakeHdrCB.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapH))) {
+                struct { float pwr, r1, r2, pad0; UINT offx, offy, extx, exty; } cb{};
+                cb.pwr = s->fakeHdrPower; cb.r1 = s->fakeHdrRadius1; cb.r2 = s->fakeHdrRadius2; cb.pad0 = 0.0f;
+                cb.offx = sub.imageRect.offset.x;
+                cb.offy = sub.imageRect.offset.y;
+                cb.extx = copyWidth;
+                cb.exty = copyHeight;
+                memcpy(mapH.pData, &cb, sizeof(cb));
+                ctx->Unmap(s->fakeHdrCB.Get(), 0);
+            }
+            // Read from casFinalTex, write to the other temp
+            Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> hdrSRV;
+            D3D11_SHADER_RESOURCE_VIEW_DESC srvdH = srvd;
+            d3d->CreateShaderResourceView(casFinalTex.Get(), &srvdH, hdrSRV.ReleaseAndGetAddressOf());
+            Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> hdrUAV;
+            D3D11_UNORDERED_ACCESS_VIEW_DESC uavdH = uavd;
+            ID3D11Texture2D* hdrDst = (casFinalTex.Get() == slot.input.Get()) ? slot.output.Get() : slot.input.Get();
+            d3d->CreateUnorderedAccessView(hdrDst, &uavdH, hdrUAV.ReleaseAndGetAddressOf());
+
+            ctx->CSSetShader(s->fakeHdrCS.Get(), nullptr, 0);
+            ID3D11Buffer* hdrCB = s->fakeHdrCB.Get();
+            ctx->CSSetConstantBuffers(0, 1, &hdrCB);
+            ID3D11ShaderResourceView* srvsH[1] = {hdrSRV.Get()};
+            ctx->CSSetShaderResources(0, 1, srvsH);
+            ID3D11UnorderedAccessView* uavsH[1] = {hdrUAV.Get()};
+            ctx->CSSetUnorderedAccessViews(0, 1, uavsH, dummyCounts);
+            ctx->Dispatch(tgx, tgy, 1);
+            // Unbind
+            ID3D11UnorderedAccessView* nullUAVH[1] = {nullptr};
+            ctx->CSSetUnorderedAccessViews(0, 1, nullUAVH, dummyCounts);
+            ID3D11ShaderResourceView* nullSRVH[1] = {nullptr};
+            ctx->CSSetShaderResources(0, 1, nullSRVH);
+            // Update final tex
+            casFinalTex = hdrDst;
+        }
 
         if (s->levelsEnabled && s->levelsCS && s->levelsCB) {
             D3D11_MAPPED_SUBRESOURCE mapL{};
@@ -710,8 +780,30 @@ namespace openxr_api_layer {
                         out << "levels_out_black=0.0\n";
                         out << "levels_out_white=1.0\n";
                         out << "levels_gamma=1.0\n";
+                        out << "\n# Optional FakeHDR pass (applied after CAS, before Levels)\n";
+                        out << "fakehdr_enable=0\n";
+                        out << "fakehdr_power=1.30\n";
+                        out << "fakehdr_radius1=0.793\n";
+                        out << "fakehdr_radius2=0.87\n";
                         out.close();
                         Log(fmt::format("Created default config at {}\n", cfgPath.string()));
+                    }
+                } else {
+                    // Backfill missing FakeHDR keys in existing config
+                    std::ifstream in(cfgPath);
+                    std::string existing((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                    in.close();
+                    if (existing.find("fakehdr_enable") == std::string::npos) {
+                        std::ofstream out(cfgPath, std::ios::app);
+                        if (out) {
+                            out << "\n# Optional FakeHDR pass (applied after CAS, before Levels)\n";
+                            out << "fakehdr_enable=0\n";
+                            out << "fakehdr_power=1.30\n";
+                            out << "fakehdr_radius1=0.793\n";
+                            out << "fakehdr_radius2=0.87\n";
+                            out.close();
+                            Log("Appended FakeHDR defaults to existing config\n");
+                        }
                     }
                 }
             } catch (...) {
@@ -830,6 +922,16 @@ namespace openxr_api_layer {
                     if (auto s = tryReadConfigValue("levels_out_black")) try { state->levelsOutBlack = std::stof(*s); } catch (...) {}
                     if (auto s = tryReadConfigValue("levels_out_white")) try { state->levelsOutWhite = std::stof(*s); } catch (...) {}
                     if (auto s = tryReadConfigValue("levels_gamma")) try { state->levelsGamma = std::stof(*s); } catch (...) {}
+                }
+                // FakeHDR from config
+                {
+                    if (auto s = tryReadConfigValue("fakehdr_enable")) {
+                        std::string v=*s; std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+                        state->fakeHdrEnabled = (v=="1"||v=="true"||v=="yes");
+                    }
+                    if (auto s = tryReadConfigValue("fakehdr_power")) try { state->fakeHdrPower = std::stof(*s); } catch (...) {}
+                    if (auto s = tryReadConfigValue("fakehdr_radius1")) try { state->fakeHdrRadius1 = std::stof(*s); } catch (...) {}
+                    if (auto s = tryReadConfigValue("fakehdr_radius2")) try { state->fakeHdrRadius2 = std::stof(*s); } catch (...) {}
                 }
                 Log(fmt::format("CAS sharpness set to {:.3f}\n", state->sharpness));
                 Log(fmt::format("CAS debug: overlay={} frames={}\n", state->debugOverlay ? 1 : 0, state->debugFramesMax));

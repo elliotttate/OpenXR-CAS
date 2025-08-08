@@ -33,26 +33,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -129,6 +129,7 @@ copy $(SolutionDir)\scripts\Uninstall-Layer-User.ps1 $(OutDir)
 if not exist $(OutDir)\shaders mkdir $(OutDir)\shaders
 copy $(ProjectDir)\shaders\CAS.hlsl $(OutDir)\shaders\CAS.hlsl
 copy $(ProjectDir)\shaders\Levels.hlsl $(OutDir)\shaders\Levels.hlsl
+copy $(ProjectDir)\shaders\FakeHDR.hlsl $(OutDir)\shaders\FakeHDR.hlsl
 copy $(ProjectDir)\shaders\ffx_a.h $(OutDir)\shaders\ffx_a.h
 copy $(ProjectDir)\shaders\ffx_cas.h $(OutDir)\shaders\ffx_cas.h
 </Command>
@@ -185,6 +186,7 @@ copy $(ProjectDir)\shaders\Levels.hlsl $(OutDir)\shaders\Levels.hlsl
 copy $(ProjectDir)\shaders\ffx_a.h $(OutDir)\shaders\ffx_a.h
 copy $(ProjectDir)\shaders\ffx_cas.h $(OutDir)\shaders\ffx_cas.h
 if exist $(ProjectDir)\shaders\CAS.cso copy $(ProjectDir)\shaders\CAS.cso $(OutDir)\shaders\CAS.cso
+copy $(ProjectDir)\shaders\FakeHDR.hlsl $(OutDir)\shaders\FakeHDR.hlsl
 </Command>
     </PostBuildEvent>
     <PostBuildEvent>
@@ -238,6 +240,7 @@ copy $(SolutionDir)\scripts\Uninstall-Layer.ps1 $(OutDir)
 if not exist $(OutDir)\shaders mkdir $(OutDir)\shaders
 copy $(ProjectDir)\shaders\CAS.hlsl $(OutDir)\shaders\CAS.hlsl
 copy $(ProjectDir)\shaders\Levels.hlsl $(OutDir)\shaders\Levels.hlsl
+copy $(ProjectDir)\shaders\FakeHDR.hlsl $(OutDir)\shaders\FakeHDR.hlsl
 copy $(ProjectDir)\shaders\ffx_a.h $(OutDir)\shaders\ffx_a.h
 copy $(ProjectDir)\shaders\ffx_cas.h $(OutDir)\shaders\ffx_cas.h
 if exist $(ProjectDir)\shaders\CAS.cso copy $(ProjectDir)\shaders\CAS.cso $(OutDir)\shaders\CAS.cso
